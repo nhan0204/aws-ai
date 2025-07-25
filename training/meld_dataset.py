@@ -110,6 +110,7 @@ class MELDDataset(Dataset):
       # Normalize the mel spectrogram
       mel_spec = (mel_spec - mel_spec.mean()) / mel_spec.std()
       
+      # Fixed audio to 300 timestamp only
       if mel_spec.size(2) < 300:
         padding = 300 - mel_spec.size(2)
         mel_spec = torch.nn.functional.pad(mel_spec, (0, padding))

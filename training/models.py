@@ -57,24 +57,25 @@ class AudioEncoder(nn.Module):
     super().__init__()
     self.conv_layers = nn.Sequential(
       # Lower level features
-      nn.Conv1d(64, 64, kernel_size=3),
-      nn.BatchNorm1d(64),
-      nn.ReLU(),
-      nn.MaxPool1d(2),
+      nn.Conv1d(64, 64, kernel_size=3), # Detect low-level audio features 3 at a time
+      nn.BatchNorm1d(64), # Stabilize features using batch normalization
+      nn.ReLU(), # Non-linearity remove negative values
+      nn.MaxPool1d(2), # Get the strongest by pooling 1/2 of the features
       # Higher level features
-      nn.Conv1d(64, 128, kernel_size=3),
-      nn.BatchNorm1d(128),
-      nn.ReLU(),
-      nn.AdaptiveAvgPool1d(1)  # Average of last timestamps
+      nn.Conv1d(64, 128, kernel_size=3), # Detect higher-level audio features
+      nn.BatchNorm1d(128), # Stabilize features using batch normalization
+      nn.ReLU(), # Non-linearity remove negative values
+      nn.AdaptiveAvgPool1d(1)  # Average of last timestamps -> [batch_size, 128, 1] guarantees fixed size
     )
     
     # Initialize the Conv1d layers for non-training
     for param in self.conv_layers.parameters():
       param.requires_grad = False # disable gradient-descent
-      
+    
+    # Projection layer to reduce features for concatenation
     self.projection = nn.Sequential(
-      nn.Linear(128, 128),  # Trained layer that catches the audio features
-      nn.ReLU(),
+      nn.Linear(128, 128),  # Add more nodes to the output
+      nn.ReLU(), # Non-linearity remove negative values
       nn.Dropout(0.2)  # prevent overfitting
     )
     
@@ -134,7 +135,7 @@ class MultimodalSentimentModel(nn.Module):
     
     fused_features = self.fusion_layer(combined_features)
     
-    emotion_output = self.emtion_classifier(fused_features)
+    emotion_output = self.emotion_classifier(fused_features)
     sentiment_output = self.sentiment_classifier(fused_features)
 
     return {
@@ -174,6 +175,7 @@ class MultimodalTrainer:
       {'params': model.sentiment_classifier.parameters(), 'lr': 5e-4},
     ], weight_decay=1e-5)
     
+    # Reduce learning rate by 10% each 2 missing epochs
     self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
       self.optimzer,
       mode="min",
@@ -321,6 +323,7 @@ class MultimodalTrainer:
       'sentiment_accuracy': sentiment_accuracy
     }, phase=phase)
     
+    # In training phase, step the scheduler based on average loss
     if phase == "val":
       self.scheduler.step(avg_loss['total'])
     
@@ -340,7 +343,7 @@ if __name__ == "__main__":
   model.eval()
   
   text_inputs = {
-    'input_ids': sample['text_inputs']['input_ids'].unsqueeze(0),
+    'input_ids': sample['tetrain_splitst_inputs']['input_ids'].unsqueeze(0),
     'attention_mask': sample['text_inputs']['attention_mask'].unsqueeze(0),
   }
   
